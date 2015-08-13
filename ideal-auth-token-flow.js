@@ -20,12 +20,19 @@ docusign.getAPITokenAsync(authCredentials)
     return storeApiToken(authToken)
   })
   .then(function (authToken) {
+    var accessToken, accountId, baseUrl
+
+    accountId = authToken.accountId
+    baseUrl = authToken.baseUrl
+    accessToken = authToken.access_token
 
     var client = new docusign.Client({
       integratorKey: integratorKey,
       email: email,
       password: password,
-      authToken: authToken, // optional
+      accountId: accountId,
+      baseUrl: baseUrl,
+      accessToken: accessToken,
       docusignEnv: docusignEnv,
       debug: debug // optional
     })
