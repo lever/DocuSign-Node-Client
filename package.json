@@ -58,6 +58,9 @@
     "lint"
   ],
   "semistandard": {
+    "ignore": [
+      "ideal-*.js"
+    ],
     "global": [
       "it",
       "describe",
