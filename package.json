@@ -50,7 +50,7 @@
     "lodash.isempty": "3.0.4",
     "lodash.isplainobject": "3.2.0",
     "lodash.merge": "3.3.2",
-    "request": "2.67.0",
+    "request": "^2.81.0",
     "streamifier": "0.1.0",
     "temp": "0.8.1",
     "uuid": "2.0.1"
