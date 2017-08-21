@@ -1,11 +1,12 @@
 // Wrapper dealing with DS views APIs
 
+var Bluebird = require('bluebird');
 var streamifier = require('streamifier');
-var async = require('async');
 var fs = require('fs'); // core
 var dsUtils = require('./../dsUtils');
 var util = require('util');
 var request = require('request');
+var forEach = require('lodash.foreach');
 var isEmpty = require('lodash.isempty');
 var merge = require('lodash.merge');
 var log = dsUtils.log;
@@ -19,10 +20,11 @@ exports.init = function (accountId, baseUrl, accessToken) {
      * @memberOf Envelopes
      * @public
      * @function
-     * @param {function} callback - Returned in the form of function(error, response).
+     * @param {function} [callback] - Returned in the form of function(error, response).
+     * @returns {Promise} - A thenable bluebird Promise; if callback is given it is called before the promise is resolved
      */
     getConsoleUrl: function (callback) {
-      getConsoleUrl(accessToken, baseUrl, callback);
+      return getConsoleUrl(accessToken, baseUrl).asCallback(callback);
     },
 
     /**
@@ -32,10 +34,11 @@ exports.init = function (accountId, baseUrl, accessToken) {
      * @public
      * @function
      * @param {string} fromDate - Date string.
-     * @param {function} callback - Returned in the form of function(error, response).
+     * @param {function} [callback] - Returned in the form of function(error, response).
+     * @returns {Promise} - A thenable bluebird Promise; if callback is given it is called before the promise is resolved
      */
     getEnvelopeList: function (fromDate, callback) {
-      getEnvelopeList(accessToken, baseUrl, fromDate, callback);
+      return getEnvelopeList(accessToken, baseUrl, fromDate).asCallback(callback);
     },
 
     /**
@@ -72,11 +75,12 @@ exports.init = function (accountId, baseUrl, accessToken) {
      *     or not to show the Sign & Return popup after the user signs.
      *   @param {object} event.eventNotification - This object mirrors the
      *     structure of the event notification request in the DS API.
-     * @param {function} callback - Returns the response body from DS API
+     * @param {function} [callback] - Returns the response body from DS API
      *   (this also includes an additional `envelopeId` field). Returned in the form of function(error, response).
+     * @returns {Promise} - A thenable bluebird Promise; if callback is given it is called before the promise is resolved
      */
     getView: function (action, fullName, email, files, returnUrl, event, callback) {
-      getView(accessToken, baseUrl, action, fullName, email, files, returnUrl, event, callback);
+      return getView(accessToken, baseUrl, action, fullName, email, files, returnUrl, event).asCallback(callback);
     },
 
     /**
@@ -86,18 +90,20 @@ exports.init = function (accountId, baseUrl, accessToken) {
      * @public
      * @function
      * @param {JSON} recipients - JSON object with recipient information. For more information on how to construct
-     *    a recipient object please visit: <a>https://www.docusign.com/p/RESTAPIGuide/RESTAPIGuide.htm#REST%20API%20References/Recipient Parameter.htm</a>
+     *    a recipient object please visit: <a href="https://www.docusign.com/p/RESTAPIGuide/RESTAPIGuide.htm#REST%20API%20References/Recipient Parameter.htm">Recipient Parameters</a>
      * @param {string} emailSubject - Subject of the email sent for the envelope created.
      * @param {object[]} files - A list of file objects to be uploaded into DS.
      *   @param {string} files[].name - The name of the file.
      *   @param {string} files[].extension - The extension of the file (e.g. `pdf`).
-     *   @param {string} files[].url - The URL to download from.
-     *   @param {string} files[].base64 - The base64-encoded buffer of the file
-     * @param {object} additionalParams - Please visit <a>https://www.docusign.com/p/RESTAPIGuide/RESTAPIGuide.htm#REST%20API%20References/Send%20an%20Envelope.htm%3FTocPath%3DREST%2520API%2520References%7CSend%2520an%2520Envelope%2520or%2520Create%2520a%2520Draft%2520Envelope%7C_____0</a>
-     * @param {function} callback - Returns the PDF file buffer in the given `encoding`. Returned in the form of function(error, response).
+     *   @param {object} files[].source - The file source to use
+     *     @param {string} files[].source.type - The type of source, either `base64`, `path`, or `url`
+     *     @param {string|buffer} files[].source.content - The base64-encoded buffer of the file, OR the local file path, OR the url to download.
+     * @param {object} additionalParams - Please visit <a href="https://www.docusign.com/p/RESTAPIGuide/RESTAPIGuide.htm#REST%20API%20References/Send%20an%20Envelope.htm%3FTocPath%3DREST%2520API%2520References%7CSend%2520an%2520Envelope%2520or%2520Create%2520a%2520Draft%2520Envelope%7C_____0">Envelope Parameters</a>
+     * @param {function} [callback] - Returns the PDF file buffer in the given `encoding`. Returned in the form of function(error, response).
+     * @returns {Promise} - A thenable bluebird Promise; if callback is given it is called before the promise is resolved
      */
     sendEnvelope: function (recipients, emailSubject, files, additionalParams, callback) {
-      sendEnvelope(accessToken, baseUrl, recipients, emailSubject, files, additionalParams, callback);
+      return sendEnvelope(accessToken, baseUrl, recipients, emailSubject, files, additionalParams).asCallback(callback);
     },
     /**
      * Get information about the specified Envelope.
@@ -106,11 +112,12 @@ exports.init = function (accountId, baseUrl, accessToken) {
      * @public
      * @function
      * @param {string} envelopeId - ID of envelope to get documents from.
-     * @param {function} callback - Returns the envelope information in a JSON object. Returned in the form of function(error, response).
+     * @param {function} [callback] - Returns the envelope information in a JSON object. Returned in the form of function(error, response).
+     * @returns {Promise} - A thenable bluebird Promise; if callback is given it is called before the promise is resolved
      *
      */
     getEnvelopeInfo: function (envelopeId, callback) {
-      getEnvelopeInfo(accessToken, baseUrl, envelopeId, callback);
+      return getEnvelopeInfo(accessToken, baseUrl, envelopeId).asCallback(callback);
     },
 
     /**
@@ -121,12 +128,13 @@ exports.init = function (accountId, baseUrl, accessToken) {
      * @function
      * @param {string} envelopeId - ID of envelope to get documents from.
      * @param {string} status - either `sent` or `voided`
-     * @param {object} additionalParams - additional params such as the voidReason
-     * @param {function} callback - Returns the envelope information in a JSON object. Returned in the form of function(error, response).
+     * @param {object} additionalParams - additional params such as the voidedReason
+     * @param {function} [callback] - Returns the envelope information in a JSON object. Returned in the form of function(error, response).
+     * @returns {Promise} - A thenable bluebird Promise; if callback is given it is called before the promise is resolved
      *
      */
     setEnvelopeStatus: function (envelopeId, status, additionalParams, callback) {
-      setEnvelopeStatus(accessToken, baseUrl, envelopeId, status, additionalParams, callback);
+      return setEnvelopeStatus(accessToken, baseUrl, envelopeId, status, additionalParams).asCallback(callback);
     },
 
     /**
@@ -140,10 +148,11 @@ exports.init = function (accountId, baseUrl, accessToken) {
      *   Pass `null` for binary or `base64` for Base64 encoding.
      * @param {boolean} attachCertificate - A flag to decide whether or not to
      *   attach the Certificate of Completion (CoC) into the returned PDF.
-     * @param {function} callback - Returns the PDF file buffer in the given `encoding`. Returned in the form of function(error, response).
+     * @param {function} [callback] - Returns the PDF file buffer in the given `encoding`. Returned in the form of function(error, response).
+     * @returns {Promise} - A thenable bluebird Promise; if callback is given it is called before the promise is resolved
      */
     getSignedDocuments: function (envelopeId, encoding, attachCertificate, callback) {
-      getSignedDocuments(accessToken, baseUrl, envelopeId, encoding, attachCertificate, callback);
+      return getSignedDocuments(accessToken, baseUrl, envelopeId, encoding, attachCertificate).asCallback(callback);
     },
 
     /**
@@ -159,10 +168,11 @@ exports.init = function (accountId, baseUrl, accessToken) {
      * @param {string} envelopeId - ID of envelope to get documents from.
      * @param {string} returnUrl - URL you want the Embedded View to return to after you have signed the envelope.
      * @param {string} authMethod - The main authentication method that gets listed in the certificate of completion.
-     * @param {function} callback - Returns the embedded signing url for the recipient. Returned in the form of function(error, response).
+     * @param {function} [callback] - Returns the embedded signing url for the recipient. Returned in the form of function(error, response).
+     * @returns {Promise} - A thenable bluebird Promise; if callback is given it is called before the promise is resolved
      */
     getSignerView: function (userId, recipientName, email, clientUserId, envelopeId, returnUrl, authMethod, callback) {
-      getSignerView(accessToken, baseUrl, userId, recipientName, email, clientUserId, envelopeId, returnUrl, authMethod, callback);
+      return getSignerView(accessToken, baseUrl, userId, recipientName, email, clientUserId, envelopeId, returnUrl, authMethod).asCallback(callback);
     },
 
     /**
@@ -175,12 +185,13 @@ exports.init = function (accountId, baseUrl, accessToken) {
      * @param {string} templateId - ID of template you wish to create an envelope from.
      * @param {array} templateRoles - Array of JSON objects of templateRoles. For more information please visit:
      *    https://www.docusign.com/p/RESTAPIGuide/RESTAPIGuide.htm#REST API References/Send an Envelope from a Template.htm%3FTocPath%3DREST%2520API%2520References%7C_____39
-     * @param {object} additionalParams - Please visit <a>https://www.docusign.com/p/RESTAPIGuide/RESTAPIGuide.htm#REST%20API%20References/Send%20an%20Envelope.htm%3FTocPath%3DREST%2520API%2520References%7CSend%2520an%2520Envelope%2520or%2520Create%2520a%2520Draft%2520Envelope%7C_____0</a>
-     * @param {function} callback - Returns JSON object with envelope information. Returned in the form of function(error, response).
+     * @param {object} additionalParams - Please visit <a href="https://www.docusign.com/p/RESTAPIGuide/RESTAPIGuide.htm#REST%20API%20References/Send%20an%20Envelope.htm%3FTocPath%3DREST%2520API%2520References%7CSend%2520an%2520Envelope%2520or%2520Create%2520a%2520Draft%2520Envelope%7C_____0">Envelope Parameters</a>
+     * @param {function} [callback] - Returns JSON object with envelope information. Returned in the form of function(error, response).
+     * @returns {Promise} - A thenable bluebird Promise; if callback is given it is called before the promise is resolved
      *
      */
     sendTemplate: function (emailSubject, templateId, templateRoles, additionalParams, callback) {
-      sendTemplate(accessToken, baseUrl, emailSubject, templateId, templateRoles, additionalParams, callback);
+      return sendTemplate(accessToken, baseUrl, emailSubject, templateId, templateRoles, additionalParams).asCallback(callback);
     },
 
     /**
@@ -192,10 +203,11 @@ exports.init = function (accountId, baseUrl, accessToken) {
      * @function
      * @param {string} templateId - ID of template you wish to create an envelope from.
      * @param {string} returnUrl - URL you want the Embedded View to return to after you have tagged the envelope.
-     * @param {function} callback - Returns the Embedded Sending View created from the template. Returned in the form of function(error, response).
+     * @param {function} [callback] - Returns the Embedded Sending View created from the template. Returned in the form of function(error, response).
+     * @returns {Promise} - A thenable bluebird Promise; if callback is given it is called before the promise is resolved
      */
     getTemplateView: function (templateId, returnUrl, callback) {
-      getTemplateView(accessToken, baseUrl, templateId, returnUrl, callback);
+      return getTemplateView(accessToken, baseUrl, templateId, returnUrl).asCallback(callback);
     },
 
     /**
@@ -205,10 +217,20 @@ exports.init = function (accountId, baseUrl, accessToken) {
      * @public
      * @function
      * @param {string} envelopeId - ID of envelope to get list of recipients from.
-     * @param {function} callback - Returns the list of recipients in the form of function(error, response).
+     * @param {boolean} [include_tabs] - When true the tab information associated with the recipient is included in the response.
+     * @param {function} [callback] - Returns the list of recipients in the form of function(error, response).
+     * @returns {Promise} - A thenable bluebird Promise; if callback is given it is called before the promise is resolved
      */
-    getRecipients: function (envelopeId, callback) {
-      getRecipients(accessToken, baseUrl, envelopeId, callback);
+    getRecipients: function (envelopeId, include_tabs, callback) {
+      // handle the case where people omit the tabs
+      /* istanbul ignore if */
+      if (arguments.length === 2 && Object.prototype.toString.call(include_tabs) === '[object Function]') {
+        callback = include_tabs;
+        include_tabs = false;
+      } else if (arguments.length === 1) {
+        include_tabs = false;
+      }
+      return getRecipients(accessToken, baseUrl, envelopeId, include_tabs).asCallback(callback);
     }
   };
 };
@@ -221,17 +243,17 @@ exports.init = function (accountId, baseUrl, accessToken) {
  * @function
  * @param {string} apiToken - DocuSign API OAuth2 access token.
  * @param {string} baseUrl - DocuSign API base URL.
- * @param {function} callback - Returned in the form of function(error, response).
+ * @returns {Promise} - A thenable bluebird Promise
  */
 
-function getConsoleUrl (apiToken, baseUrl, callback) {
+function getConsoleUrl (apiToken, baseUrl) {
   var options = {
     method: 'POST',
     url: baseUrl + '/views/console',
     headers: dsUtils.getHeaders(apiToken)
   };
 
-  dsUtils.makeRequest('Get Dashboard URL', options, callback);
+  return dsUtils.makeRequest('Get Dashboard URL', options);
 }
 
 /**
@@ -243,18 +265,16 @@ function getConsoleUrl (apiToken, baseUrl, callback) {
  * @param {string} apiToken - DocuSign API OAuth2 access token.
  * @param {string} baseUrl - DocuSign API base URL.
  * @param {string} fromDate - Date string.
- * @param {function} callback - Returned in the form of function(error, response).
+ * @returns {Promise} - A thenable bluebird Promise
  */
-function getEnvelopeList (apiToken, baseUrl, fromDate, callback) {
+function getEnvelopeList (apiToken, baseUrl, fromDate) {
   fromDate = new Date(fromDate);
-
   var options = {
     method: 'GET',
     url: baseUrl + '/envelopes?from_date=' + (fromDate.getMonth() + 1) + '%2F' + fromDate.getDate() + '%2F' + fromDate.getFullYear(),
     headers: dsUtils.getHeaders(apiToken)
   };
-
-  dsUtils.makeRequest('Get Envelope List', options, callback);
+  return dsUtils.makeRequest('Get Envelope List', options);
 }
 
 /**
@@ -266,23 +286,81 @@ function getEnvelopeList (apiToken, baseUrl, fromDate, callback) {
  * @param {string} apiToken - DocuSign API OAuth2 access token.
  * @param {string} baseUrl - DocuSign API base URL.
  * @param {JSON} recipients - JSON object with recipient information. For more information on how to construct
- *    a recipient object please visit: <a>https://www.docusign.com/p/RESTAPIGuide/RESTAPIGuide.htm#REST%20API%20References/Recipient Parameter.htm</a>
+ *    a recipient object please visit: <a href="https://www.docusign.com/p/RESTAPIGuide/RESTAPIGuide.htm#REST%20API%20References/Recipient Parameter.htm">Recipient Parameters</a>
  * @param {string} emailSubject - Subject of the email sent for the envelope created.
  * @param {object[]} files - A list of file objects to be uploaded into DS.
  *   @param {string} files[].name - The name of the file.
  *   @param {string} files[].extension - The extension of the file (e.g. `pdf`).
- *   @param {string} files[].url - The URL to download from.
- *   @param {string} files[].base64 - The base64-encoded buffer of the file
- * @param {object} additionalParams - Please visit <a>https://www.docusign.com/p/RESTAPIGuide/RESTAPIGuide.htm#REST%20API%20References/Send%20an%20Envelope.htm%3FTocPath%3DREST%2520API%2520References%7CSend%2520an%2520Envelope%2520or%2520Create%2520a%2520Draft%2520Envelope%7C_____0</a>
- * @param {function} callback - Returns the PDF file buffer in the given `encoding`. Returned in the form of function(error, response).
+ *   @param {object} files[].source - The file source to use
+ *     @param {string} files[].source.type - The type of source, either `base64`, `path`, or `url`
+ *     @param {string|buffer} files[].source.content - The base64-encoded buffer of the file, OR the local file path, OR the url to download.
+ * @param {object} additionalParams - Please visit <a href="https://www.docusign.com/p/RESTAPIGuide/RESTAPIGuide.htm#REST%20API%20References/Send%20an%20Envelope.htm%3FTocPath%3DREST%2520API%2520References%7CSend%2520an%2520Envelope%2520or%2520Create%2520a%2520Draft%2520Envelope%7C_____0">Envelope Parameters</a>
+ * @returns {Promise} - A thenable bluebird Promise fulfilled with the PDF file buffer in the given `encoding`.
  */
+function sendEnvelope (apiToken, baseUrl, recipients, emailSubject, files, additionalParams) {
+  return Bluebird.try(function () {
+    var documents = [];
+    var parts = [];
+    additionalParams = additionalParams != null ? additionalParams : /* istanbul ignore next */ {};
 
-function sendEnvelope (apiToken, baseUrl, recipients, emailSubject, files, additionalParams, callback) {
-  var documents = [];
-  var parts = [];
-  additionalParams = additionalParams != null ? additionalParams : {};
+    forEach(files, createMultipartFilesPrep(parts, documents));
 
-  files.forEach(function (file, index) {
+    var recipientCounter = 2;
+    var generateId = function (recipient) {
+      recipient.recipientId = recipientCounter;
+      recipientCounter++;
+    };
+
+    recipients.signers.forEach(generateId);
+
+    var data = merge({}, additionalParams, {
+      recipients: recipients,
+      emailSubject: emailSubject,
+      documents: documents,
+      status: 'sent'
+    }, function (a, b) {
+      return Array.isArray(a) ? /* istanbul ignore next */ a.concat(b) : undefined;
+    });
+
+    parts.unshift({
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(data)
+    });
+
+    return dsUtils.sendMultipart(baseUrl + '/envelopes', {
+      Authorization: 'bearer ' + apiToken
+    }, parts)
+    .spread(function (response, body) {
+      /* istanbul ignore if */
+      if (isEmpty(body)) {
+        throw new DocuSignError('Any empty response body was received.');
+      }
+
+      try {
+        var parsedBody = JSON.parse(body);
+      } catch (e) {
+        /* istanbul ignore next */
+        throw new DocuSignError('Problem trying to parse the body');
+      }
+      return parsedBody;
+    });
+  });
+}
+
+/**
+ * Helper method to prep files for multipart submission
+ *
+ * @memberOf Envelopes
+ * @private
+ * @function
+ * @param  {array} parts - Array to push multipart files into
+ * @param  {array} documents - Array to push file meta data into
+ * @return {function} Function to be used with forEach
+ */
+function createMultipartFilesPrep (parts, documents) {
+  return function (file, index) {
     var documentId = index + 1;
     documents.push({
       documentId: documentId,
@@ -293,16 +371,36 @@ function sendEnvelope (apiToken, baseUrl, recipients, emailSubject, files, addit
     log('Now retrieving the following file with documentId: %s \n %s', documentId, JSON.stringify(file).substr(0, 256));
 
     var download;
-    if ('path' in file) {
-      download = fs.createReadStream(file.path);
-    } else if ('base64' in file) {
-      download = streamifier.createReadStream(new Buffer(file.base64, 'base64'));
-    } else {
-      download = request({
-        method: 'GET',
-        url: file.url,
-        encoding: null
-      });
+    var fileSource = file.source;
+    if (fileSource == null) {
+      throw new DocuSignError('File had no source. Requires a base64 buffer, local file path, or url to retrieve file from.\nMust be in the form of: ' +
+      util.inspect({
+        name: 'SampleDocument.pdf',
+        ext: 'pdf',
+        source: {
+          type: 'path|base64|url',
+          content: 'string|buffer'
+        }
+      }));
+    }
+    switch (fileSource.type.toLowerCase()) {
+      case 'path':
+        download = fs.createReadStream(fileSource.content);
+        break;
+
+      /* istanbul ignore next */
+      case 'base64':
+        download = streamifier.createReadStream(new Buffer(fileSource.content, 'base64'));
+        break;
+
+      /* istanbul ignore next */
+      case 'url':
+        download = request({
+          method: 'GET',
+          url: fileSource.content,
+          encoding: null
+        });
+        break;
     }
     download.pause();
 
@@ -312,49 +410,7 @@ function sendEnvelope (apiToken, baseUrl, recipients, emailSubject, files, addit
       },
       body: download
     });
-  });
-
-  var recipientCounter = 2;
-  var generateId = function (recipient) {
-    recipient.recipientId = recipientCounter;
-    recipientCounter++;
   };
-
-  recipients.signers.forEach(generateId);
-
-  var data = merge({}, additionalParams, {
-    recipients: recipients,
-    emailSubject: emailSubject,
-    documents: documents,
-    status: 'sent'
-  }, function (a, b) {
-    return Array.isArray(a) ? a.concat(b) : undefined;
-  });
-
-  parts.unshift({
-    headers: {
-      'Content-Type': 'application/json'
-    },
-    body: JSON.stringify(data)
-  });
-
-  dsUtils.sendMultipart(baseUrl + '/envelopes', {
-    Authorization: 'bearer ' + apiToken
-  }, parts, function (error, response, body) {
-    if (error) {
-      return callback(error);
-    }
-    if (isEmpty(body)) {
-      return callback(new DocuSignError('Any empty response body was received.'));
-    }
-
-    try {
-      var parsedBody = JSON.parse(body);
-    } catch (e) {
-      callback(new DocuSignError('Problem trying to parse the body'));
-    }
-    callback(null, parsedBody);
-  });
 }
 
 /**
@@ -379,9 +435,9 @@ function sendEnvelope (apiToken, baseUrl, recipients, emailSubject, files, addit
  * @param {object[]} files - A list of file objects to be uploaded into DS.
  *   @param {string} files.name - The name of the file.
  *   @param {string} files.extension - The extension of the file (e.g. `pdf`).
- *   @param {string} files.url - The URL to download from.
- *   @param {string} files.base64 - The base64-encoded buffer of the file.
- *     contents (`files[].url` does not need to be set).
+ *   @param {object} files[].source - The file source to use
+ *     @param {string} files[].source.type - The type of source, either `base64`, `path`, or `url`
+ *     @param {string|buffer} files[].source.content - The base64-encoded buffer of the file, OR the local file path, OR the url to download.
  * @param {string} returnUrl - The URL to be redirected to after the
  *   DS process is done.
  * @param {object} event - An object with values concerning what happens
@@ -393,70 +449,60 @@ function sendEnvelope (apiToken, baseUrl, recipients, emailSubject, files, addit
  *     or not to show the Sign & Return popup after the user signs.
  *   @param {object} event.eventNotification - This object mirrors the
  *     structure of the event notification request in the DS API.
- * @param {function} callback - Returns the response body from DS API
- *   (this also includes an additional `envelopeId` field). Returned in the form of function(error, response).
+ * @returns {Promise} - A thenable bluebird Promise fulfilled with the response body from DS API (including an additional `envelopeId` field).
  */
-
-function getView (apiToken, baseUrl, action, fullName, email, files, returnUrl, event, callback) {
-  async.waterfall([
-
-    function createNewEnvelope (next) {
-      _createEnvelope(apiToken, baseUrl, action, fullName, email, files, event, function (error, response) {
-        if (error) {
-          return next(error);
-        } else if ('errorCode' in response) {
-          var errMsg = util.format('(Error Code: %s) Error:\n  %s', response.errorCode, JSON.stringify(response.message));
-          var err = new DocuSignError(errMsg, {errorCode: response.errorCode});
-          return next(err);
-        }
-
-        next(null, response.uri, response.envelopeId);
-      });
-    },
-
-    function getEnvelopeEmbedView (envelopeUri, envelopeId, next) {
-      var data = {};
-      if (action === 'sign') {
-        data = {
-          returnUrl: returnUrl,
-          authenticationMethod: 'email',
-          recipientId: 1,
-          userName: fullName,
-          email: email
-        };
-      } else {
-        data = {
-          returnUrl: returnUrl
-        };
+function getView (apiToken, baseUrl, action, fullName, email, files, returnUrl, event) {
+  function createNewEnvelope () {
+    return _createEnvelope(apiToken, baseUrl, action, fullName, email, files, event)
+    .then(function (response) {
+      /* istanbul ignore if */
+      if ('errorCode' in response) {
+        var errMsg = util.format('(Error Code: %s) Error:\n  %s', response.errorCode, JSON.stringify(response.message));
+        var err = new DocuSignError(errMsg, {errorCode: response.errorCode});
+        throw err;
       }
+      return [response.uri, response.envelopeId];
+    });
+  }
 
-      var ending = (action === 'sign') ? 'recipient' : 'sender';
-
-      // this controls whether or not to show the Sign and Return popup at the end of the process
-      if (event != null && 'showSignAndReturn' in event) {
-        ending += '?disable_cc_for_selfsign=' + !event.showSignAndReturn;
-      }
-
-      var options = {
-        method: 'POST',
-        url: baseUrl + envelopeUri + '/views/' + ending,
-        headers: dsUtils.getHeaders(apiToken, baseUrl),
-        json: data
+  function getEnvelopeEmbedView (envelopeUri, envelopeId) {
+    var data = {};
+    if (action === 'sign') {
+      data = {
+        returnUrl: returnUrl,
+        authenticationMethod: 'email',
+        recipientId: 1,
+        userName: fullName,
+        email: email
       };
-
-      dsUtils.makeRequest('Get Envelope View', options, function (error, response) {
-        if (error) {
-          return next(error);
-        }
-
-        // return the envelope ID for the post-signing page
-        response.envelopeId = envelopeId;
-
-        next(null, response);
-      });
+    } else {
+      data = {
+        returnUrl: returnUrl
+      };
     }
 
-  ], callback);
+    var ending = (action === 'sign') ? 'recipient' : 'sender';
+
+    // this controls whether or not to show the Sign and Return popup at the end of the process
+    if (event != null && 'showSignAndReturn' in event) {
+      ending += '?disable_cc_for_selfsign=' + !event.showSignAndReturn;
+    }
+
+    var options = {
+      method: 'POST',
+      url: baseUrl + envelopeUri + '/views/' + ending,
+      headers: dsUtils.getHeaders(apiToken),
+      json: data
+    };
+
+    return dsUtils.makeRequest('Get Envelope View', options).then(function (response) {
+      // return the envelope ID for the post-signing page
+      response.envelopeId = envelopeId;
+      return response;
+    });
+  }
+
+  return createNewEnvelope().spread(getEnvelopeEmbedView);
 }
 
 /**
@@ -476,9 +522,9 @@ function getView (apiToken, baseUrl, action, fullName, email, files, returnUrl, 
  * @param {object[]} files - A list of file objects to be uploaded into DS.
  *   @param {string} files.name - The name of the file.
  *   @param {string} files.extension - The extension of the file (e.g. `pdf`).
- *   @param {string} files.url - The URL to download from.
- *   @param {string} files.base64 - The base64-encoded buffer of the file.
- *     contents (`files[].url` does not need to be set).
+ *   @param {object} files[].source - The file source to use
+ *     @param {string} files[].source.type - The type of source, either `base64`, `path`, or `url`
+ *     @param {string|buffer} files[].source.content - The base64-encoded buffer of the file, OR the local file path, OR the url to download.
  * @param {object} event - An object with values concerning what happens
  *   after the DS process is done (e.g. webhook registration). Can be `null`.
  *   @param {string} event.platform - The name of the calling app.
@@ -488,131 +534,103 @@ function getView (apiToken, baseUrl, action, fullName, email, files, returnUrl, 
  *     or not to show the Sign & Return popup after the user signs.
  *   @param {object} event.eventNotification - This object mirrors the
  *     structure of the event notification request in the DS API.
- * @param {function} callback - Returns the response body from DS API
- *   (this also includes an additional `envelopeId` field). Returned in the form of function(error, response).
+ * @param {function} [callback] - Returns a thenable Bluebird Promise including additional `envelopeId` field in the response
  */
 
-function _createEnvelope (apiToken, baseUrl, action, fullName, email, files, event, callback) {
-  log('Starting to create envelope');
+function _createEnvelope (apiToken, baseUrl, action, fullName, email, files, event) {
+  return Bluebird.try(function () {
+    log('Starting to create envelope');
 
-  // construct the parts of the multipart request
-  var documents = [];
-  var parts = [];
-  var customFields = [];
+    // construct the parts of the multipart request
+    var documents = [];
+    var parts = [];
+    var customFields = [];
 
-  files.forEach(function (file, index) {
-    var documentId = index + 1;
-    documents.push({
-      documentId: documentId,
-      name: file.name,
-      fileExtension: file.extension
-    });
+    forEach(files, createMultipartFilesPrep(parts, documents));
 
-    log('Now retrieving the following file with documentId: %s \n %s', documentId, JSON.stringify(file).substr(0, 256));
-
-    var download;
-    if ('path' in file) {
-      download = fs.createReadStream(file.path);
-    } else if ('base64' in file) {
-      download = streamifier.createReadStream(new Buffer(file.base64, 'base64'));
-    } else if ('url' in file) {
-      download = request({
-        method: 'GET',
-        url: file.url,
-        encoding: null // get file as binary buffer
-      });
+    var recipients;
+    /* istanbul ignore if */
+    if (event && 'recipients' in event) {
+      recipients = event.recipients;
     } else {
-      callback(true, 'Files array provided had no buffer or url to retrieve file from.');
-    }
-    download.pause();
-
-    parts.push({
-      headers: {
-        'Content-Disposition': 'documentId=' + documentId
-      },
-      body: download
-    });
-  });
-
-  var recipients;
-  if (event && 'recipients' in event) {
-    recipients = event.recipients;
-  } else {
-    recipients = {
-      signers: [],
-      carbonCopies: []
-    };
-  }
-
-  // generate recipient IDs to satisfy DS API
-  var recipientCounter = 2;
-  var generateId = function (recipient) {
-    recipient.recipientId = recipientCounter;
-    recipientCounter++;
-  };
-  recipients.signers.forEach(generateId);
-  recipients.carbonCopies.forEach(generateId);
-
-  if (action !== 'send') {
-    // add self as a recipient
-    recipients.signers.unshift({
-      recipientId: 1,
-      name: fullName,
-      email: email
-    });
-  }
-
-  var subjectPrefix = 'Please DocuSign this document: ';
-  var subjectEnding = (files.length > 0) ? files[0].name : '';
-
-  var body = {
-    status: (action === 'sign') ? 'sent' : 'created',
-    recipients: recipients,
-    emailSubject: (action === 'sign') ? subjectEnding : (subjectPrefix + subjectEnding),
-    documents: documents,
-    customFields: {
-      textCustomFields: customFields
-    }
-  };
-
-  if (event != null) {
-    if ('eventNotification' in event) {
-      body.eventNotification = event.eventNotification;
-    } else {
-      body.eventNotification = {
-        url: event.url,
-        loggingEnabled: true,
-        envelopeEvents: [{
-          envelopeEventStatusCode: 'completed',
-          includeDocuments: true
-        }]
+      recipients = {
+        signers: [],
+        carbonCopies: []
       };
     }
-  }
 
-  parts.unshift({
-    headers: {
-      'Content-Type': 'application/json'
-    },
-    body: JSON.stringify(body)
-  });
+    // generate recipient IDs to satisfy DS API
+    var recipientCounter = 2;
+    /* istanbul ignore next */
+    var generateId = function (recipient) {
+      recipient.recipientId = recipientCounter;
+      recipientCounter++;
+    };
+    recipients.signers.forEach(generateId);
+    recipients.carbonCopies.forEach(generateId);
 
-  dsUtils.sendMultipart(baseUrl + '/envelopes', {
-    Authorization: 'bearer ' + apiToken
-  }, parts, function (error, response, body) {
-    if (error) {
-      return callback(error);
-    }
-    if (isEmpty(body)) {
-      return callback(new DocuSignError('Any empty response body was received.'));
+    if (action !== 'send') {
+      // add self as a recipient
+      recipients.signers.unshift({
+        recipientId: 1,
+        name: fullName,
+        email: email
+      });
     }
 
-    try {
-      var parsedBody = JSON.parse(body);
-    } catch (e) {
-      callback(new DocuSignError('Problem trying to parse the body'));
+    var subjectPrefix = 'Please DocuSign this document: ';
+    var subjectEnding = (files.length > 0) ? files[0].name : /* istanbul ignore next */ '';
+
+    var body = {
+      status: (action === 'sign') ? 'sent' : 'created',
+      recipients: recipients,
+      emailSubject: (action === 'sign') ? subjectEnding : (subjectPrefix + subjectEnding),
+      documents: documents,
+      customFields: {
+        textCustomFields: customFields
+      }
+    };
+
+    if (event != null) {
+      /* istanbul ignore if */
+      if ('eventNotification' in event) {
+        body.eventNotification = event.eventNotification;
+      } else {
+        body.eventNotification = {
+          url: event.url,
+          loggingEnabled: true,
+          envelopeEvents: [{
+            envelopeEventStatusCode: 'completed',
+            includeDocuments: true
+          }]
+        };
+      }
     }
-    callback(null, parsedBody);
+
+    parts.unshift({
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(body)
+    });
+
+    return dsUtils.sendMultipart(baseUrl + '/envelopes', {
+      Authorization: 'bearer ' + apiToken
+    }, parts)
+    .spread(function (response, body) {
+      /* istanbul ignore if */
+      if (isEmpty(body)) {
+        throw new DocuSignError('Any empty response body was received.');
+      }
+
+      try {
+        var parsedBody = JSON.parse(body);
+      } catch (e) {
+        /* istanbul ignore next */
+        throw new DocuSignError('Problem trying to parse the body');
+      }
+      return parsedBody;
+    });
   });
 }
 
@@ -625,17 +643,16 @@ function _createEnvelope (apiToken, baseUrl, action, fullName, email, files, eve
  * @param {string} apiToken - DocuSign API OAuth2 access token.
  * @param {string} baseUrl - DocuSign API base URL.
  * @param {string} envelopeId - ID of envelope to get documents from.
- * @param {function} callback - Returns the envelope information in a JSON object. Returned in the form of function(error, response).
- *
+ * @returns {Promise} - A thenable bluebird Promise fulfilled with the envelope information in a JSON object
  */
-function getEnvelopeInfo (apiToken, baseUrl, envelopeId, callback) {
+function getEnvelopeInfo (apiToken, baseUrl, envelopeId) {
   var options = {
     method: 'GET',
     url: baseUrl + '/envelopes/' + envelopeId,
     headers: dsUtils.getHeaders(apiToken)
   };
 
-  dsUtils.makeRequest('Get Envelope Information', options, callback);
+  return dsUtils.makeRequest('Get Envelope Information', options);
 }
 
 /**
@@ -649,10 +666,9 @@ function getEnvelopeInfo (apiToken, baseUrl, envelopeId, callback) {
  * @param {string} envelopeId - ID of envelope to get documents from.
  * @param {string} status - either `sent` or `voided`
  * @param {object} additionalParams - additional params such as the voidReason
- * @param {function} callback - Returns the envelope information in a JSON object. Returned in the form of function(error, response).
- *
+ * @returns {Promise} - A thenable bluebird Promise fulfilled with the envelope information in a JSON object.
  */
-function setEnvelopeStatus (apiToken, baseUrl, envelopeId, status, additionalParams, callback) {
+function setEnvelopeStatus (apiToken, baseUrl, envelopeId, status, additionalParams) {
   var options = {
     method: 'PUT',
     url: baseUrl + '/envelopes/' + envelopeId,
@@ -662,12 +678,12 @@ function setEnvelopeStatus (apiToken, baseUrl, envelopeId, status, additionalPar
   var data = merge({}, additionalParams, {
     status: status
   }, function (a, b) {
-    return Array.isArray(a) ? a.concat(b) : undefined;
+    return Array.isArray(a) ? /* istanbul ignore next */ a.concat(b) : undefined;
   });
 
   options.json = data;
 
-  dsUtils.makeRequest('Set Envelope Status', options, callback);
+  return dsUtils.makeRequest('Set Envelope Status', options);
 }
 
 /**
@@ -683,9 +699,9 @@ function setEnvelopeStatus (apiToken, baseUrl, envelopeId, status, additionalPar
  *   Pass `null` for binary or `base64` for Base64 encoding.
  * @param {boolean} attachCertificate - A flag to decide whether or not to
  *   attach the Certificate of Completion (CoC) into the returned PDF.
- * @param {function} callback - Returns the PDF file buffer in the given `encoding`. Returned in the form of function(error, response).
+ * @returns {Promise} - A thenable bluebird Promise fulfilled with the PDF file buffer in the given `encoding`.
  */
-function getSignedDocuments (apiToken, baseUrl, envelopeId, encoding, attachCertificate, callback) {
+function getSignedDocuments (apiToken, baseUrl, envelopeId, encoding, attachCertificate) {
   var options = {
     method: 'GET',
     url: baseUrl + '/envelopes/' + envelopeId + '/documents/combined?certificate=' + attachCertificate,
@@ -693,27 +709,7 @@ function getSignedDocuments (apiToken, baseUrl, envelopeId, encoding, attachCert
     encoding: encoding
   };
 
-  request(options, function (error, response, body) {
-    if (error) {
-      return callback(error);
-    }
-    if (response.statusCode !== 200 && response.statusCode !== 201) {
-      var parsedBody, message, errorCode;
-      try {
-        parsedBody = JSON.parse(body.toString());
-        message = parsedBody.message;
-        errorCode = parsedBody.errorCode;
-      } catch (e) {
-        message = body.toString();
-        errorCode = null;
-      }
-      return callback(new DocuSignError(response.statusCode + ': ' + message, {
-        statusCode: response.statusCode,
-        errorCode: errorCode
-      }));
-    }
-    callback(null, body);
-  });
+  return dsUtils.makeRequest('Get Signed Documents', options);
 }
 
 /**
@@ -731,13 +727,13 @@ function getSignedDocuments (apiToken, baseUrl, envelopeId, encoding, attachCert
  * @param {string} envelopeId - ID of envelope to get documents from.
  * @param {string} returnUrl - URL you want the Embedded View to return to after you have signed the envelope.
  * @param {string} authMethod - The main authentication method that gets listed in the certificate of completion.
- * @param {function} callback - Returns the embedded signing URL. Returned in the form of function(error, response).
+ * @returns {Promise} - A thenable bluebird Promise fulfilled with the embedded signing URL.
  */
-function getSignerView (apiToken, baseUrl, userId, recipientName, email, clientUserId, envelopeId, returnUrl, authMethod, callback) {
+function getSignerView (apiToken, baseUrl, userId, recipientName, email, clientUserId, envelopeId, returnUrl, authMethod) {
   var data = {};
 
   if (clientUserId === null) {
-    return callback(new DocuSignError('clientUserId is a required recipient parameter for embedded signing.'));
+    return Bluebird.reject(new DocuSignError('clientUserId is a required recipient parameter for embedded signing.'));
   }
 
   if (!userId) {
@@ -748,6 +744,7 @@ function getSignerView (apiToken, baseUrl, userId, recipientName, email, clientU
       userName: recipientName,
       email: email
     };
+  /* istanbul ignore else */
   } else {
     data = {
       returnUrl: returnUrl,
@@ -764,7 +761,7 @@ function getSignerView (apiToken, baseUrl, userId, recipientName, email, clientU
     json: data
   };
 
-  dsUtils.makeRequest('Get Signer View', options, callback);
+  return dsUtils.makeRequest('Get Signer View', options);
 }
 
 /**
@@ -779,13 +776,11 @@ function getSignerView (apiToken, baseUrl, userId, recipientName, email, clientU
  * @param {string} templateId - ID of template you wish to create an envelope from.
  * @param {array} templateRoles - Array of JSON objects of templateRoles. For more information please visit:
  *    https://www.docusign.com/p/RESTAPIGuide/RESTAPIGuide.htm#REST API References/Send an Envelope from a Template.htm%3FTocPath%3DREST%2520API%2520References%7C_____39
- * @param {object} additionalParams - Please visit <a>https://www.docusign.com/p/RESTAPIGuide/RESTAPIGuide.htm#REST%20API%20References/Send%20an%20Envelope.htm%3FTocPath%3DREST%2520API%2520References%7CSend%2520an%2520Envelope%2520or%2520Create%2520a%2520Draft%2520Envelope%7C_____0</a>
- * @param {function} callback - Returns JSON object with envelope information. Returned in the form of function(error, response).
- *
+ * @param {object} additionalParams - Please visit <a href="https://www.docusign.com/p/RESTAPIGuide/RESTAPIGuide.htm#REST%20API%20References/Send%20an%20Envelope.htm%3FTocPath%3DREST%2520API%2520References%7CSend%2520an%2520Envelope%2520or%2520Create%2520a%2520Draft%2520Envelope%7C_____0">Envelope Parameters</a>
+ * @returns {Promise} - A thenable bluebird Promise fulfilled with envelope information
  */
-
-function sendTemplate (apiToken, baseUrl, emailSubject, templateId, templateRoles, additionalParams, callback) {
-  additionalParams = additionalParams != null ? additionalParams : {};
+function sendTemplate (apiToken, baseUrl, emailSubject, templateId, templateRoles, additionalParams) {
+  additionalParams = additionalParams != null ? additionalParams : /* istanbul ignore next */ {};
 
   var data = merge({}, additionalParams, {
     emailSubject: emailSubject,
@@ -793,7 +788,7 @@ function sendTemplate (apiToken, baseUrl, emailSubject, templateId, templateRole
     templateRoles: templateRoles,
     status: 'sent'
   }, function (a, b) {
-    return Array.isArray(a) ? a.concat(b) : undefined;
+    return Array.isArray(a) ? /* istanbul ignore next */ a.concat(b) : undefined;
   });
 
   var options = {
@@ -803,7 +798,7 @@ function sendTemplate (apiToken, baseUrl, emailSubject, templateId, templateRole
     json: data
   };
 
-  dsUtils.makeRequest('Send Template', options, callback);
+  return dsUtils.makeRequest('Send Template', options);
 }
 
 /**
@@ -817,51 +812,39 @@ function sendTemplate (apiToken, baseUrl, emailSubject, templateId, templateRole
  * @param {string} baseUrl - DocuSign API base URL.
  * @param {string} templateId - ID of template you wish to create an envelope from.
  * @param {string} returnUrl - URL you want the Embedded View to return to after you have tagged the envelope.
- * @param {function} callback - Returns the Embedded Sending View created from the template. Returned in the form of function(error, response).
+ * @returns {Promise} - A thenable bluebird Promise fulfilled with the Embedded Sending View created from the template.
  */
-function getTemplateView (apiToken, baseUrl, templateId, returnUrl, callback) {
-  async.waterfall([
+function getTemplateView (apiToken, baseUrl, templateId, returnUrl) {
+  function createEnvelope () {
+    var options = {
+      method: 'POST',
+      url: baseUrl + '/envelopes',
+      headers: dsUtils.getHeaders(apiToken),
+      json: {
+        templateId: templateId,
+        status: 'created'
+      }
+    };
+    return dsUtils.makeRequest('Create Envelope From Template', options).then(function (response) {
+      return response.envelopeId;
+    });
+  }
 
-    function createEnvelope (next) {
-      var options = {
-        method: 'POST',
-        url: baseUrl + '/envelopes',
-        headers: dsUtils.getHeaders(apiToken),
-        json: {
-          templateId: templateId,
-          status: 'created'
-        }
-      };
+  function getView (envelopeId) {
+    var options = {
+      method: 'POST',
+      url: baseUrl + '/envelopes/' + envelopeId + '/views/sender',
+      headers: dsUtils.getHeaders(apiToken),
+      json: {
+        returnUrl: returnUrl
+      }
+    };
+    return dsUtils.makeRequest('Get Template View', options).then(function (response) {
+      return response;
+    });
+  }
 
-      dsUtils.makeRequest('Create Envelope From Template', options, function (error, response) {
-        if (error) {
-          return next(error);
-        }
-
-        next(null, response.envelopeId);
-      });
-    },
-
-    function getView (envelopeId, next) {
-      var options = {
-        method: 'POST',
-        url: baseUrl + '/envelopes/' + envelopeId + '/views/sender',
-        headers: dsUtils.getHeaders(apiToken),
-        json: {
-          returnUrl: returnUrl
-        }
-      };
-
-      dsUtils.makeRequest('Get Template View', options, function (error, response) {
-        if (error) {
-          return next(error);
-        }
-
-        next(null, response);
-      });
-    }
-
-  ], callback);
+  return createEnvelope().then(getView);
 }
 
 /**
@@ -873,14 +856,15 @@ function getTemplateView (apiToken, baseUrl, templateId, returnUrl, callback) {
  * @param {string} apiToken - DocuSign API OAuth2 access token.
  * @param {string} baseUrl - DocuSign API base URL.
  * @param {string} envelopeId - ID of envelope to get list of recipients from.
- * @param {function} callback - Returns the list of recipients in the form of function(error, response).
+ * @param {boolean} [include_tabs] - When true the tab information associated with the recipient is included in the response.
+ * @returns {Promise} - A thenable bluebird Promise fulfilled with the list of recipients
  */
-function getRecipients (apiToken, baseUrl, envelopeId, callback) {
+function getRecipients (apiToken, baseUrl, envelopeId, include_tabs) {
+  include_tabs = include_tabs != null ? include_tabs : false;
   var options = {
     method: 'GET',
-    url: baseUrl + '/envelopes/' + envelopeId + '/recipients',
+    url: baseUrl + '/envelopes/' + envelopeId + '/recipients?include_tabs=' + include_tabs,
     headers: dsUtils.getHeaders(apiToken)
   };
-
-  dsUtils.makeRequest('Get List of Recipients', options, callback);
+  return dsUtils.makeRequest('Get List of Recipients', options);
 }

@@ -1,11 +1,15 @@
-DocuSign Node Client
-===========
+# DocuSign Node Client
 
-NPM module that wraps the <a href="https://www.docusign.com">DocuSign</a> API
+[![NPM version][npm-image]][npm-url]
+[![NPM downloads][downloads-image]][downloads-url]
+[![Build status][travis-image]][travis-url]
+[![Test coverage][coveralls-image]][coveralls-url]
+
+> [NPM module](https://www.npmjs.com/package/docusign-node) that wraps the <a href="https://www.docusign.com">DocuSign</a> API
 
 [Documentation about the DocuSign API](https://www.docusign.com/developer-center)
 
-[Documentation about this package](http://docusign.github.io/DocuSign-Node-Client)
+[Documentation about this package](http://docusign.github.io/docusign-node-client)
 
 Feel free to create a Pull Request!
 
@@ -31,7 +35,7 @@ The below examples show you how to:
 - Create a new Envelope using a Template and sending to the recipient you specify
 - Logout of the Client by Revoking the DocuSign user's OAuth Token
 
-Alternatively, this SDK supports a promise interface via [`bluebird`](https://www.npmjs.com/package/bluebird). An [example](./examples/promise.js).
+Alternatively, this SDK supports a promise interface via [`bluebird`](https://www.npmjs.com/package/bluebird). An [example](./examples/promise.js) is provided.
 
 ```javascript
 var docusign = require('docusign-node');
@@ -52,6 +56,7 @@ var templateRoles = [{
   name: fullName,
   roleName: templateRoleName
 }];
+var additionalParams = {};
 
 async.waterfall([
   // **********************************************************************************
@@ -84,7 +89,7 @@ async.waterfall([
   // Step 3 - Request Signature via Template
   // **********************************************************************************
   function sendTemplate (client, next) {
-    client.envelopes.sendTemplate('Sent from a Template', templateId, templateRoles, function (err, response) {
+    client.envelopes.sendTemplate('Sent from a Template', templateId, templateRoles, additionalParams, function (err, response) {
       if (err) {
         return next(err);
       }
@@ -117,16 +122,6 @@ async.waterfall([
 How to run Unit Tests
 -----------
 
-There is a `sample-config.json` file provided. Please copy it into a new file called `config.json` along with your
- - DocuSign Integrator key
- - Email Address
- - Password
- - Template Id
- - Template Role
- - and Envelope Id associated with your DocuSign account.
-
-The `config.json` is ignored so any changes to that file are not committable.
-
 In the console run `npm test`.
 
 Contributing
@@ -139,3 +134,12 @@ License
 ----------
 
 The DocuSign-Node-Client is licensed under the [following LICENSE](LICENSE).
+
+[npm-image]: https://img.shields.io/npm/v/docusign-node.svg?style=flat
+[npm-url]: https://npmjs.org/package/docusign-node
+[downloads-image]: https://img.shields.io/npm/dm/docusign-node.svg?style=flat
+[downloads-url]: https://npmjs.org/package/docusign-node
+[travis-image]: https://img.shields.io/travis/docusign/docusign-node-client.svg?style=flat
+[travis-url]: https://travis-ci.org/docusign/docusign-node-client
+[coveralls-image]: https://img.shields.io/coveralls/docusign/docusign-node-client.svg?style=flat
+[coveralls-url]: https://coveralls.io/r/docusign/docusign-node-client?branch=master

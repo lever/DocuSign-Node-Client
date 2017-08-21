@@ -1,5 +1,8 @@
 var docusign = require('docusign-node');
+var authStoreHelpers = require('./auth-store-helpers');
 var DocuSignError = docusign.DocuSignError;
+var storeAuthInfo = authStoreHelpers.storeAuthInfo;
+var getStoredAuthInfo = authStoreHelpers.getStoredAuthInfo;
 
 var integratorKey = '***';        // Integrator Key associated with your DocuSign Integration
 var email = 'YOUR_EMAIL';         // Email for your DocuSign Account
@@ -24,16 +27,27 @@ docusign.init(integratorKey, docusignEnv, debug)
   // Step 2 - Create a DocuSign Client Object
   // **********************************************************************************
   .then(function (response) {
+    var existingAuthInfo = getStoredAuthInfo();
     if (response.message === 'succesfully initialized') {
-      return docusign.createClient(email, password);
+      if (existingAuthInfo != null) {
+        return docusign.createClientFromAuth(existingAuthInfo);
+      } else {
+        return docusign.createClient(email, password);
+      }
     } else {
       throw new Error('Did not initialize');
     }
   })
   // **********************************************************************************
-  // Step 3 - Request Signature via Template
+  // Step 3 - Store the `authInfo` for later usage
   // **********************************************************************************
   .then(function (client) {
+    return [client, storeAuthInfo(client.authInfo)];
+  })
+  // **********************************************************************************
+  // Step 4 - Request Signature via Template
+  // **********************************************************************************
+  .spread(function (client) {
     return [client, client.envelopes.sendTemplate('Sent from a Template', templateId, templateRoles)];
   })
   .spread(function (client, response) {
@@ -41,7 +55,7 @@ docusign.init(integratorKey, docusignEnv, debug)
     return client;
   })
   // **********************************************************************************
-  // Step 4 - Revoke OAuth Token for Logout
+  // Step 5 - Revoke OAuth Token for Logout
   // **********************************************************************************
   .then(function (client) {
     return client.logOut();

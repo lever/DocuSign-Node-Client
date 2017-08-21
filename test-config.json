@@ -1,0 +1,12 @@
+{
+  "integratorKey": "SAND-7c8746af-7f4d-4dbb-bf53-fc10861ef45b",
+  "apiEnv": "demo",
+  "debug": false,
+  "email": "node_sdk@mailinator.com",
+  "noSigEmail": "no_sig@mailinator.com",
+  "userId": "fcc5726c-cd73-4844-b580-40bbbe6ca126",
+  "noSigUserId": "538241a0-16f1-42b6-bf54-48aef23da8c4",
+  "password": "qweqweasd",
+  "templateId": "cf2a46c2-8d6e-4258-9d62-752547b1a419",
+  "templateRole": "bob"
+}

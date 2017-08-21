@@ -2,16 +2,18 @@
 
 var fs = require('fs'); // core
 var util = require('util');
+var Bluebird = require('bluebird');
 var request = require('request');
-var async = require('async');
 var temp = require('temp');
 var stream = require('stream');
-var crypto = require('crypto');
+var uuid = require('uuid');
 var assign = require('lodash.assign');
+var isPlainObject = require('lodash.isplainobject');
 
 exports.DocuSignError = DocuSignError;
 function DocuSignError (message, errorDetails) {
   errorDetails = errorDetails || {};
+  /* istanbul ignore if */
   if (message instanceof DocuSignError) {
     return message;
   }
@@ -24,6 +26,15 @@ DocuSignError.prototype = Object.create(Error.prototype);
 DocuSignError.prototype.constrcutor = DocuSignError;
 
 /**
+ * Simple space to share internal state
+ *
+ * @memberOf Utils
+ * @private
+ * @type {Object}
+ */
+exports.internalState = {};
+
+/**
  * General logging function for debugging use
  *
  * @memberOf Utils
@@ -32,7 +43,8 @@ DocuSignError.prototype.constrcutor = DocuSignError;
  */
 exports.log = debugLog;
 function debugLog () {
-  var isDebugLogEnabled = process.env.dsDebug === 'true' || /docusign/ig.test(process.env.DEBUG);
+  var isDebugLogEnabled = exports.internalState.dsDebug === 'true' || /docusign/ig.test(process.env.DEBUG);
+  /* istanbul ignore if */
   if (isDebugLogEnabled) {
     var timestamp = '[' + new Date().toISOString() + ']';
     console.log.apply(console, [timestamp].concat(arguments));
@@ -47,13 +59,7 @@ function debugLog () {
  * @function
  * @returns {string}
  */
-exports.generateNewGuid = function () {
-  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function (c) {
-    var r = crypto.randomBytes(16).toString('hex');
-    var v = (c === 'x') ? r : (r & 0x3 | 0x8);
-    return v.toString(16);
-  });
-};
+exports.generateNewGuid = uuid;
 
 /**
  * Provides an environment specific URL for the highest level API calls
@@ -64,7 +70,7 @@ exports.generateNewGuid = function () {
  * @returns {string}
  */
 exports.getApiUrl = function () {
-  var env = process.env.targetEnv;
+  var env = exports.internalState.targetEnv;
   return 'https://' + env + '.docusign.net/restapi/v2';
 };
 
@@ -92,60 +98,62 @@ exports.getHeaders = function (token) {
  * @param apiName - name of the API to be requested
  * @param options - options for the request
  * @param callback
+ * @returns {Promise} - A thenable bluebird Promise; If callback is given it is called before the promise is resolved
  */
 exports.makeRequest = function (apiName, options, callback) {
-  var data;
-  if ('json' in options) {
-    data = JSON.stringify(options.json);
-  } else if ('multipart' in options) {
-    var json;
-    try {
-      json = JSON.parse(options.multipart[0].body);
-    } catch(_) {
-      json = null;
-    }
-    if (json !== null) {
-      data = JSON.stringify(json);
+  var makeRequestAsync = new Bluebird(function (resolve, reject) {
+    var data;
+    if ('json' in options) {
+      data = options.json;
     } else {
       data = '';
     }
-  } else if ('form' in options) {
-    data = JSON.stringify(options.form);
-  } else {
-    data = '';
-  }
 
-  exports.log(util.format('DS API %s Request:\n  %s %s\t  %s', apiName, options.method, options.url, data));
+    exports.log(util.format('DS API %s Request:\n  %s %s\t  %s\nHeaders: %s', apiName, options.method, options.url, util.inspect(data, {depth: null}), util.inspect(options.headers, {depth: null})));
 
-  request(options, function (error, response, body) {
-    if (error) {
-      callback(error);
-      return;
-    }
+    request(options, function (error, response, body) {
+      if (error) {
+        return reject(error);
+      }
 
-    var json, err, errMsg;
-    try {
-      json = JSON.parse(body);
-    } catch(_) {
-      json = null;
-    }
+      var errorDetails = {};
 
-    if (json === null) { // successful request; no json in response body
-      callback(null, body);
-    } else if ('errorCode' in json) {
-      errMsg = util.format('DS API %s (Error Code: %s) Error:\n  %s', apiName, json.errorCode, json.message);
-      err = new DocuSignError(errMsg);
-      exports.log(errMsg);
-      callback(err, json);
-    } else if ('error' in json) {
-      errMsg = util.format('DS API %s Error:\n  %s \n\nDescription: %s', apiName, json.error, json.error_description);
-      err = new DocuSignError(errMsg);
-      exports.log(errMsg);
-      callback(err, json);
-    } else { // no error
-      exports.log(util.format('DS API %s Response:\n  %s', apiName, JSON.stringify(json)));
-      callback(null, json);
-    }
+      if (response.statusCode >= 400) {
+        errorDetails.statusCode = response.statusCode;
+      }
+
+      var json, err, errMsg;
+      try {
+        json = JSON.parse(body);
+      } catch (_) {
+        if (isPlainObject(body)) {
+          json = body;
+        } else {
+          json = null;
+        }
+      }
+
+      if (json === null) { // successful request; no json in response body
+        resolve(body);
+      } else if ('errorCode' in json) {
+        errMsg = util.format('DS API %s (Error Code: %s) Error:\n  %s', apiName, json.errorCode, json.message);
+        errorDetails.errorCode = json.errorCode;
+        err = new DocuSignError(errMsg, errorDetails);
+        reject(err);
+      } else if ('error' in json) {
+        errMsg = util.format('DS API %s Error:\n  %s \n\nDescription: %s', apiName, json.error, json.error_description);
+        errorDetails.errorCode = json.error;
+        err = new DocuSignError(errMsg, errorDetails);
+        reject(err);
+      } else { // no error
+        exports.log(util.format('DS API %s Response:\n  %s', apiName, JSON.stringify(json)));
+        resolve(json);
+      }
+    });
+  });
+  return makeRequestAsync.asCallback(callback).catch(DocuSignError, function (error) {
+    exports.log(error.message);
+    throw error;
   });
 };
 
@@ -186,39 +194,64 @@ exports.sendMultipart = function (mpUrl, mpHeaders, parts, callback) {
   var boundary = exports.generateNewGuid();
   mpHeaders['Content-Type'] = 'multipart/form-data; boundary=' + boundary;
 
-  async.eachSeries(parts, function (part, next) {
-    var headers = Object.keys(part.headers).map(function (key) {
-      return key + ': ' + part.headers[key];
-    }).join(crlf);
+  exports.log('mpHeaders', mpHeaders);
 
-    multipart.write('--' + boundary + crlf);
-    multipart.write(headers);
-    multipart.write(crlf + crlf);
+  var buildMultipartBody = parts.reduce(function (lastPromise, part) {
+    return lastPromise.then(function () {
+      return new Bluebird(function (resolve, reject) {
+        var headers = Object.keys(part.headers).map(function (key) {
+          return key + ': ' + part.headers[key];
+        }).join(crlf);
+        exports.log('part.headers', part.headers);
 
-    var body = (Buffer.isBuffer(part.body) || typeof part.body === 'string')
-      ? _createStringStream(part.body) : part.body;
+        multipart.write('--' + boundary + crlf);
+        multipart.write(headers);
+        multipart.write(crlf + crlf);
 
-    body.on('data', function (chunk) {
-      multipart.write(chunk);
+        var body = (Buffer.isBuffer(part.body) || typeof part.body === 'string')
+          ? _createStringStream(part.body) : part.body;
+
+        body.on('data', function (chunk) {
+          multipart.write(chunk);
+        });
+        body.on('end', function () {
+          multipart.write(crlf);
+          resolve();
+        });
+        body.resume();
+      });
     });
-    body.on('end', function () {
-      multipart.write(crlf);
-      next(null); // continue
+  }, Bluebird.resolve());
+
+  return new Bluebird(function (resolve, reject) {
+    buildMultipartBody.then(function () { // called when all is done
+      multipart.write('--' + boundary + '--');
+      var endAsync = Bluebird.promisify(multipart.end, multipart);
+
+      return endAsync().then(function () {
+        fs.createReadStream(tempPath).pipe(request({
+          method: 'POST',
+          url: mpUrl,
+          headers: mpHeaders
+        }, function (error, response, body) {
+          try {
+            fs.unlinkSync(tempPath);
+          } catch (e) {
+            exports.log('Failed to fs.unlink', e);
+          }
+          if (error) {
+            return reject(error);
+          }
+          exports.log('sendMultipart response body', body);
+          resolve([response, body]);
+        }));
+      })
+      .catch(function (err) {
+        exports.log('sendMultipart error', err);
+        reject(err);
+      });
     });
-    body.resume();
-  }, function () { // called when all is done
-    multipart.write('--' + boundary + '--');
-    multipart.end(function () {
-      fs.createReadStream(tempPath).pipe(request({
-        method: 'POST',
-        url: mpUrl,
-        headers: mpHeaders
-      }, function (error, response, body) {
-        fs.unlinkSync(tempPath);
-        callback(error, response, body);
-      }));
-    });
-  });
+  }).asCallback(callback, { spread: true });
 };
 
 function _createStringStream (str) {
