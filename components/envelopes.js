@@ -151,8 +151,8 @@ exports.init = function (accountId, baseUrl, accessToken) {
      * @param {function} [callback] - Returns the PDF file buffer in the given `encoding`. Returned in the form of function(error, response).
      * @returns {Promise} - A thenable bluebird Promise; if callback is given it is called before the promise is resolved
      */
-    getSignedDocuments: function (envelopeId, encoding, attachCertificate, callback) {
-      return getSignedDocuments(accessToken, baseUrl, envelopeId, encoding, attachCertificate).asCallback(callback);
+    getSignedDocuments: function (envelopeId, encoding, attachCertificate, documentId, callback) {
+      return getSignedDocuments(accessToken, baseUrl, envelopeId, encoding, attachCertificate, documentId).asCallback(callback);
     },
 
     /**
@@ -701,10 +701,11 @@ function setEnvelopeStatus (apiToken, baseUrl, envelopeId, status, additionalPar
  *   attach the Certificate of Completion (CoC) into the returned PDF.
  * @returns {Promise} - A thenable bluebird Promise fulfilled with the PDF file buffer in the given `encoding`.
  */
-function getSignedDocuments (apiToken, baseUrl, envelopeId, encoding, attachCertificate) {
+function getSignedDocuments (apiToken, baseUrl, envelopeId, encoding, attachCertificate, documentId) {
+  documentId = documentId || 'combined'
   var options = {
     method: 'GET',
-    url: baseUrl + '/envelopes/' + envelopeId + '/documents/combined?certificate=' + attachCertificate,
+    url: baseUrl + '/envelopes/' + envelopeId + '/documents/' + documentId + '?certificate=' + attachCertificate,
     headers: dsUtils.getHeaders(apiToken),
     encoding: encoding
   };
