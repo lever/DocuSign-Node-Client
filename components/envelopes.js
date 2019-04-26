@@ -152,6 +152,10 @@ exports.init = function (accountId, baseUrl, accessToken) {
      * @returns {Promise} - A thenable bluebird Promise; if callback is given it is called before the promise is resolved
      */
     getSignedDocuments: function (envelopeId, encoding, attachCertificate, documentId, callback) {
+      if (!callback && (typeof documentId == 'function')) {
+        callback = documentId
+        documentId = null
+      }
       return getSignedDocuments(accessToken, baseUrl, envelopeId, encoding, attachCertificate, documentId).asCallback(callback);
     },
 
