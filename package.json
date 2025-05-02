@@ -49,7 +49,7 @@
     "lodash.foreach": "3.0.3",
     "lodash.isempty": "3.0.4",
     "lodash.isplainobject": "3.2.0",
-    "lodash.merge": "3.3.2",
+    "lodash.merge": "4.6.2",
     "request": "^2.81.0",
     "streamifier": "0.1.0",
     "temp": "0.9.4",
